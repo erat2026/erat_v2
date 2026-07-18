@@ -3,15 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>オンラインタイマーシステム（谷本さん案・ログイン機能付）</title>
-    <!-- Tailwind CSS (デザイン調整用) -->
+    <title>オンラインタイマー ＆ インカムシステム</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDK (v10 compat版) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen text-gray-800 font-sans">
 
     <div id="app" class="max-w-4xl mx-auto p-4">
         
-        <!-- 0. ログイン画面（初期状態：表示） -->
+        <!-- 0. ログイン画面 -->
         <div id="login-screen" class="block max-w-md mx-auto my-20 bg-white p-8 rounded-lg shadow-md border border-gray-200">
             <h1 class="text-2xl font-bold text-center mb-6 text-blue-600">システムログイン</h1>
             <div class="space-y-4">
@@ -24,13 +27,13 @@
                     <input type="password" id="login-password" placeholder="合言葉を入力" class="w-full px-3 py-2 border rounded focus:outline-blue-500 text-sm">
                 </div>
                 <div id="login-error" class="text-red-500 text-sm font-medium hidden">※合言葉が違うか、保護名が入力されていません。</div>
-                <button onclick="checkLogin()" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded shadow transition text-sm">
+                <button id="btn-login" onclick="checkLogin()" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded shadow transition text-sm">
                     ログインして進む
                 </button>
             </div>
         </div>
 
-        <!-- 1. グループ選択画面（初期状態：非表示） -->
+        <!-- 1. グループ選択画面 -->
         <div id="group-selection-screen" class="hidden">
             <h1 class="text-2xl font-bold text-center my-8 text-blue-600">オンラインタイマーシステム</h1>
             <div class="text-center mb-6 bg-blue-50 text-blue-700 py-2 px-4 rounded inline-block mx-auto w-full max-w-xs border border-blue-200 text-sm">
@@ -46,7 +49,7 @@
             </div>
         </div>
 
-        <!-- 2. メインシステム画面 (グループ選択後・初期状態：非表示) -->
+        <!-- 2. メインシステム画面 -->
         <div id="main-system-screen" class="hidden">
             <!-- 上部ヘッダー -->
             <div class="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm mb-4 border border-gray-200">
@@ -55,20 +58,22 @@
                     <span class="text-xs text-gray-500 block mt-0.5">保護名: <span id="display-guardian-name-main" class="font-medium text-gray-700"></span></span>
                 </div>
                 <button onclick="backToGroupSelection()" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded font-medium transition text-sm">
-                    ← グループ選択に戻る
+                    ← グループ選択へ
                 </button>
             </div>
 
             <!-- タブ切り替えボタン -->
-            <div class="flex border-b border-gray-300 mb-4 bg-white rounded-t-lg overflow-hidden shadow-sm">
-                <button id="tab-btn-1" onclick="switchTab(1)" class="w-1/3 py-3 text-center font-bold border-b-4 border-blue-500 text-blue-600 bg-blue-50">結果共有</button>
-                <button id="tab-btn-2" onclick="switchTab(2)" class="w-1/3 py-3 text-center font-bold border-b-4 border-transparent text-gray-600 hover:bg-gray-50">データベース作成</button>
-                <button id="tab-btn-3" onclick="switchTab(3)" class="w-1/3 py-3 text-center font-bold border-b-4 border-transparent text-gray-600 hover:bg-gray-50">登録</button>
+            <div class="flex flex-wrap border-b border-gray-300 mb-4 bg-white rounded-t-lg overflow-hidden shadow-sm">
+                <button id="tab-btn-1" onclick="switchTab(1)" class="w-1/4 py-3 text-xs sm:text-sm text-center font-bold border-b-4 border-blue-500 text-blue-600 bg-blue-50">結果共有</button>
+                <button id="tab-btn-2" onclick="switchTab(2)" class="w-1/4 py-3 text-xs sm:text-sm text-center font-bold border-b-4 border-transparent text-gray-600 hover:bg-gray-50">DB作成</button>
+                <button id="tab-btn-3" onclick="switchTab(3)" class="w-1/4 py-3 text-xs sm:text-sm text-center font-bold border-b-4 border-transparent text-gray-600 hover:bg-gray-50">登録</button>
+                <button id="tab-btn-4" onclick="switchTab(4)" class="w-1/4 py-3 text-xs sm:text-sm text-center font-bold border-b-4 border-transparent text-gray-600 hover:bg-gray-50 relative">
+                    インカム <span id="chat-badge" class="absolute top-1 right-2 bg-red-500 text-white text-[10px] px-1.5 rounded-full hidden">新</span>
+                </button>
             </div>
 
             <!-- ○結果共有タブ（タブ1） -->
             <div id="tab-content-1" class="block space-y-4">
-                <!-- 一覧画面 -->
                 <div id="runner-list-view" class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                     <h3 class="text-lg font-bold mb-3 border-b pb-2 text-gray-700">ランナー別リアルタイム状況</h3>
                     <div class="overflow-x-auto">
@@ -81,9 +86,7 @@
                                     <th class="p-3 border">ペース</th>
                                 </tr>
                             </thead>
-                            <tbody id="realtime-tbody">
-                                <!-- JSで動的生成 -->
-                            </tbody>
+                            <tbody id="realtime-tbody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -91,26 +94,22 @@
                 <!-- 詳細画面 -->
                 <div id="runner-detail-view" class="hidden bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                     <div class="flex justify-between items-center mb-4 border-b pb-2">
-                        <h3 id="detail-runner-name" class="text-lg font-bold text-gray-700">◯◯ さんの詳細データ</h3>
-                        <button onclick="hideRunnerDetail()" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded font-medium text-sm transition">
-                            一覧に戻る
-                        </button>
+                        <h3 id="detail-runner-name" class="text-lg font-bold text-gray-700">詳細データ</h3>
+                        <button onclick="hideRunnerDetail()" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded font-medium text-sm transition">戻る</button>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse text-xs sm:text-sm">
                             <thead>
                                 <tr class="bg-gray-100">
-                                    <th class="p-2 border">スプリットタイム</th>
+                                    <th class="p-2 border">スプリット</th>
                                     <th class="p-2 border">地点距離</th>
                                     <th class="p-2 border">地点ペース</th>
-                                    <th class="p-2 border">ラップタイム</th>
+                                    <th class="p-2 border">ラップ</th>
                                     <th class="p-2 border">ラップ距離</th>
                                     <th class="p-2 border">ラップペース</th>
                                 </tr>
                             </thead>
-                            <tbody id="detail-tbody">
-                                <!-- JSで動的生成 -->
-                            </tbody>
+                            <tbody id="detail-tbody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -118,34 +117,29 @@
 
             <!-- ○データベース作成タブ（タブ2） -->
             <div id="tab-content-2" class="hidden space-y-4">
-                <!-- ストップウォッチ本体 -->
                 <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 text-center">
                     <div id="stopwatch-display" class="font-mono text-5xl sm:text-6xl font-bold text-gray-800 mb-6 tracking-wider">00:00.00</div>
                     <div class="flex flex-wrap justify-center gap-3">
                         <button id="sw-start-stop-btn" onclick="toggleStopwatch()" class="px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded shadow transition w-32">スタート</button>
                         <button id="sw-reset-btn" onclick="resetStopwatch()" class="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded shadow transition w-32">リセット</button>
                         <button id="sw-split-btn" onclick="recordSplit()" class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded shadow transition w-32">スプリット</button>
-                        <button id="sw-clear-splits-btn" onclick="clearSplits()" class="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded shadow transition w-40">スプリット全消去</button>
+                        <button id="sw-clear-splits-btn" onclick="clearSplits()" class="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded shadow transition w-40">全消去</button>
                     </div>
                 </div>
 
-                <!-- 割り当て・修正データベース -->
                 <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                    <h3 class="text-lg font-bold mb-3 border-b pb-2 text-gray-700">スプリット割り当てデータ管理</h3>
-                    <p class="text-xs text-gray-500 mb-2">※ここでの修正はリアルタイムに保存されます（入力中の画面のガタつきはありません）</p>
+                    <h3 class="text-lg font-bold mb-3 border-b pb-2 text-gray-700">スプリット割り当て（自動同期）</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse text-sm">
                             <thead>
                                 <tr class="bg-gray-100">
                                     <th class="p-2 border w-12 text-center">No</th>
-                                    <th class="p-2 border w-36">スプリットタイム (手動修正可)</th>
+                                    <th class="p-2 border w-36">スプリットタイム</th>
                                     <th class="p-2 border w-44">担当ランナー</th>
                                     <th class="p-2 border w-36">ラップ距離</th>
                                 </tr>
                             </thead>
-                            <tbody id="splits-tbody">
-                                <!-- JSで動的生成 -->
-                            </tbody>
+                            <tbody id="splits-tbody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -153,85 +147,96 @@
 
             <!-- ○登録タブ（タブ3） -->
             <div id="tab-content-3" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- ランナー登録 -->
                 <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                     <h3 class="text-lg font-bold mb-3 border-b pb-2 text-gray-700">ランナー登録</h3>
                     <div class="flex gap-2 mb-4">
                         <input type="text" id="runner-input" placeholder="ランナー名を入力" class="flex-1 px-3 py-2 border rounded text-sm focus:outline-blue-500">
                         <button onclick="addRunner()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded text-sm transition">登録</button>
                     </div>
-                    <ul id="runner-list" class="space-y-2 max-h-60 overflow-y-auto">
-                        <!-- 動的生成 -->
-                    </ul>
+                    <ul id="runner-list" class="space-y-2 max-h-60 overflow-y-auto"></ul>
                 </div>
 
-                <!-- ラップ距離登録 -->
                 <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                     <h3 class="text-lg font-bold mb-3 border-b pb-2 text-gray-700">ラップ距離登録</h3>
                     <div class="flex gap-2 mb-4">
                         <input type="number" id="distance-input" placeholder="距離 (メートル)" class="flex-1 px-3 py-2 border rounded text-sm focus:outline-blue-500">
                         <button onclick="addDistance()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded text-sm transition">登録</button>
                     </div>
-                    <ul id="distance-list" class="space-y-2 max-h-60 overflow-y-auto">
-                        <!-- 動的生成 -->
-                    </ul>
+                    <ul id="distance-list" class="space-y-2 max-h-60 overflow-y-auto"></ul>
+                </div>
+            </div>
+
+            <!-- ○インカムチャットタブ（タブ4） -->
+            <div id="tab-content-4" class="hidden space-y-4">
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col h-[500px]">
+                    <div class="flex justify-between items-center border-b pb-2 mb-2">
+                        <h3 class="text-lg font-bold text-gray-700">リアルタイム・インカム</h3>
+                    </div>
+                    
+                    <!-- チャットログ -->
+                    <div id="chat-messages" class="flex-1 overflow-y-auto space-y-2 p-2 bg-gray-50 rounded border text-sm"></div>
+                    
+                    <!-- 送信フォーム -->
+                    <div class="mt-3 flex gap-2">
+                        <input type="text" id="chat-input" placeholder="全体への指示・連絡を入力..." class="flex-1 px-3 py-2 border rounded text-sm focus:outline-blue-500" onkeypress="if(event.key==='Enter') sendChatMessage()">
+                        <button onclick="sendChatMessage()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded text-sm transition">送信</button>
+                    </div>
                 </div>
             </div>
 
         </div>
     </div>
 
-    <!-- システムロジックスクリプト -->
     <script>
-        // --- 1. データ構造の定義と初期化 ---
+        // --- Firebase初期設定 ---
+        const firebaseConfig = {
+  apiKey: "AIzaSyDmrffBMh2QaGPhm08ipoAkJEXBCN7bniM",
+  authDomain: "running-timer-v2.firebaseapp.com",
+  projectId: "running-timer-v2",
+  storageBucket: "running-timer-v2.firebasestorage.app",
+  messagingSenderId: "1030389620206",
+  appId: "1:1030389620206:web:e08a72a3be143a382402ff"
+};
+        
+        // Firebase初期化
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // --- 全体管理変数 ---
         const GROUPS_COUNT = 5;
         let currentGroupIndex = null;
-        let currentGuardianName = ""; // ログインした保護名を保持
+        let currentGuardianName = ""; 
+        let activeTab = 1;
+        let isFirstChatLoad = true;
 
-        // 各グループごとの独立したデータ
-        let groupData = Array.from({ length: GROUPS_COUNT }, () => ({
-            runners: [],      
-            distances: [],    
-            splits: []        
-        }));
+        // グループ用データオブジェクトの初期値
+        let currentGroupData = { runners: [], distances: [], splits: [] };
 
-        // ストップウォッチの動作状態
-        let swStatus = {
-            isRunning: false,
-            startTime: 0,
-            elapsedTime: 0, 
-            intervalId: null
-        };
+        // ストップウォッチ状態
+        let swStatus = { isRunning: false, startTime: 0, elapsedTime: 0, intervalId: null };
 
-        // ローカルストレージからロード
-        if (localStorage.getItem('tanimoto_timer_data')) {
-            try {
-                groupData = JSON.parse(localStorage.getItem('tanimoto_timer_data'));
-            } catch(e) {
-                console.error("データロード失敗。初期化します。", e);
+        // --- 共通機能: タップ時のバイブレーション通知 ---
+        document.addEventListener('click', function(e) {
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.closest('tr')) {
+                if (navigator.vibrate) {
+                    navigator.vibrate(40); // 40ミリ秒小さく振動
+                }
             }
-        }
+        });
 
-        function saveData() {
-            localStorage.setItem('tanimoto_timer_data', JSON.stringify(groupData));
-        }
-
-        // --- 1.5 ログイン認証処理 ---
+        // --- ログイン認証 ---
         function checkLogin() {
             const guardianInput = document.getElementById('login-guardian-name').value.trim();
             const passwordInput = document.getElementById('login-password').value.trim();
             const errorElement = document.getElementById('login-error');
 
-            // 合言葉は「erat」、保護名は空欄でなければ許可
             if (passwordInput === 'erat' && guardianInput !== '') {
                 currentGuardianName = guardianInput;
                 errorElement.classList.add('hidden');
                 
-                // 画面表示の切り替え
                 document.getElementById('login-screen').classList.replace('block', 'hidden');
                 document.getElementById('group-selection-screen').classList.replace('hidden', 'block');
                 
-                // 保護名を画面に反映
                 document.getElementById('display-guardian-name-top').innerText = currentGuardianName;
                 document.getElementById('display-guardian-name-main').innerText = currentGuardianName;
             } else {
@@ -239,7 +244,7 @@
             }
         }
 
-        // --- 2. 画面・タブの切り替えロジック ---
+        // --- グループ選択＆リアルタイム同期開始 ---
         function selectGroup(index) {
             currentGroupIndex = index;
             document.getElementById('group-selection-screen').classList.replace('block', 'hidden');
@@ -250,30 +255,64 @@
             swStatus.elapsedTime = 0;
             updateStopwatchDisplay();
 
+            // Firebaseのデータ監視（リッスン）を開始
+            startFirebaseSync(index);
+            startChatSync(index);
+
             switchTab(1); 
             hideRunnerDetail();
         }
 
         function backToGroupSelection() {
+            // 監視をオフにして戻る
+            if (currentGroupIndex !== null) {
+                database.ref(`timer_system/groups/group_${currentGroupIndex}`).off();
+                database.ref(`timer_system/chat/group_${currentGroupIndex}`).off();
+            }
             stopStopwatch();
             currentGroupIndex = null;
+            isFirstChatLoad = true;
             document.getElementById('main-system-screen').classList.replace('block', 'hidden');
             document.getElementById('group-selection-screen').classList.replace('hidden', 'block');
         }
 
+        // --- Firebaseデータ同期用ロジック ---
+        function startFirebaseSync(groupIndex) {
+            const groupRef = database.ref(`timer_system/groups/group_${groupIndex}`);
+            groupRef.on('value', (snapshot) => {
+                const val = snapshot.val();
+                if (val) {
+                    currentGroupData.runners = val.runners ? Object.values(val.runners) : [];
+                    currentGroupData.distances = val.distances ? Object.values(val.distances) : [];
+                    currentGroupData.splits = val.splits ? Object.values(val.splits) : [];
+                } else {
+                    currentGroupData = { runners: [], distances: [], splits: [] };
+                }
+                // 現在開いているタブのUIを更新
+                updateViewForTab(activeTab);
+            });
+        }
+
+        // --- タブ切り替え ---
         function switchTab(tabNum) {
-            for(let i=1; i<=3; i++) {
+            activeTab = tabNum;
+            for(let i=1; i<=4; i++) {
                 const content = document.getElementById(`tab-content-${i}`);
                 const btn = document.getElementById(`tab-btn-${i}`);
                 if (i === tabNum) {
                     content.classList.replace('hidden', 'block');
-                    btn.className = "w-1/3 py-3 text-center font-bold border-b-4 border-blue-500 text-blue-600 bg-blue-50";
+                    btn.className = "w-1/4 py-3 text-xs sm:text-sm text-center font-bold border-b-4 border-blue-500 text-blue-600 bg-blue-50";
                 } else {
                     content.classList.replace('block', 'hidden');
-                    btn.className = "w-1/3 py-3 text-center font-bold border-b-4 border-transparent text-gray-600 hover:bg-gray-50";
+                    btn.className = "w-1/4 py-3 text-xs sm:text-sm text-center font-bold border-b-4 border-transparent text-gray-600 hover:bg-gray-50";
                 }
             }
-            if(tabNum === 1) hideRunnerDetail();
+            if(tabNum === 1) {
+                hideRunnerDetail();
+            } else if(tabNum === 4) {
+                document.getElementById('chat-badge').classList.add('hidden');
+                scrollChatToBottom();
+            }
             updateViewForTab(tabNum);
         }
 
@@ -284,7 +323,7 @@
             if (tabNum === 3) renderTab3();
         }
 
-        // --- 3. 計算補助共通関数（谷本さん指定ルール準拠） ---
+        // --- 補助計算関数 ---
         function formatTime(seconds) {
             if (isNaN(seconds) || seconds < 0) return "00:00.00";
             const m = Math.floor(seconds / 60);
@@ -293,6 +332,7 @@
             return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
         }
 
+        // --- 修正箇所：タイマー修正時に文字列から秒数を復元する処理 ---
         function parseFormattedTimeToSeconds(str) {
             if(str.includes(':')) {
                 const parts = str.split(':');
@@ -307,100 +347,68 @@
             if (!totalSeconds || !totalMeters) return "-分-秒/km";
             const distanceKm = totalMeters / 1000;
             const paceSecondsPerKm = totalSeconds / distanceKm;
-            
             const paceMinutes = Math.floor(paceSecondsPerKm / 60);
             const paceSeconds = Math.round(paceSecondsPerKm % 60); 
-            
             return `${paceMinutes}分${String(paceSeconds).padStart(2, '0')}秒/km`;
         }
 
-        // --- 4. タブ3: 登録ロジック ---
+        // --- タブ3: 登録（Firebaseへ書き込み） ---
         function addRunner() {
             const input = document.getElementById('runner-input');
             const name = input.value.trim();
             if (!name) return;
-            const data = groupData[currentGroupIndex];
-            data.runners.push({ id: 'r_' + Date.now() + Math.random(), name: name });
+            const id = 'r_' + Date.now() + Math.floor(Math.random()*100);
+            database.ref(`timer_system/groups/group_${currentGroupIndex}/runners/${id}`).set({ id, name });
             input.value = '';
-            saveData();
-            renderTab3();
         }
 
         function editRunner(id, newName) {
-            const data = groupData[currentGroupIndex];
-            const runner = data.runners.find(r => r.id === id);
-            if (runner) {
-                runner.name = newName.trim();
-                saveData();
-            }
+            database.ref(`timer_system/groups/group_${currentGroupIndex}/runners/${id}/name`).set(newName.trim());
         }
 
-        // ラップ距離登録
         function addDistance() {
             const input = document.getElementById('distance-input');
             const value = parseInt(input.value, 10);
             if (isNaN(value) || value <= 0) return;
-            const data = groupData[currentGroupIndex];
-            data.distances.push({ id: 'd_' + Date.now() + Math.random(), value: value });
+            const id = 'd_' + Date.now() + Math.floor(Math.random()*100);
+            database.ref(`timer_system/groups/group_${currentGroupIndex}/distances/${id}`).set({ id, value });
             input.value = '';
-            saveData();
-            renderTab3();
         }
 
         function editDistance(id, newValue) {
-            const data = groupData[currentGroupIndex];
-            const dist = data.distances.find(d => d.id === id);
-            if (dist) {
-                dist.value = parseInt(newValue, 10) || 0;
-                saveData();
-            }
+            database.ref(`timer_system/groups/group_${currentGroupIndex}/distances/${id}/value`).set(parseInt(newValue, 10) || 0);
         }
 
+        // --- 修正箇所：修正入力中に画面がチラつかないよう、セレクトボックス生成部分を最適化 ---
         function renderTab3() {
-            const data = groupData[currentGroupIndex];
             const rList = document.getElementById('runner-list');
             rList.innerHTML = '';
-            data.runners.forEach((r) => {
+            currentGroupData.runners.forEach((r) => {
                 const li = document.createElement('li');
                 li.className = "flex gap-2 items-center bg-gray-50 p-2 rounded border";
-                li.innerHTML = `
-                    <input type="text" value="${r.name}" onchange="editRunner('${r.id}', this.value)" class="flex-1 bg-transparent border-b border-transparent hover:border-gray-400 focus:border-blue-500 focus:bg-white px-1 py-0.5 text-sm outline-none">
-                `;
+                li.innerHTML = `<input type="text" value="${r.name}" onchange="editRunner('${r.id}', this.value)" class="flex-1 bg-transparent border-b border-transparent hover:border-gray-400 focus:border-blue-500 focus:bg-white px-1 py-0.5 text-sm outline-none">`;
                 rList.appendChild(li);
             });
 
             const dList = document.getElementById('distance-list');
             dList.innerHTML = '';
-            data.distances.forEach((d) => {
+            currentGroupData.distances.forEach((d) => {
                 const li = document.createElement('li');
                 li.className = "flex gap-2 items-center bg-gray-50 p-2 rounded border";
-                li.innerHTML = `
-                    <input type="number" value="${d.value}" onchange="editDistance('${d.id}', this.value)" class="flex-1 bg-transparent border-b border-transparent hover:border-gray-400 focus:border-blue-500 focus:bg-white px-1 py-0.5 text-sm outline-none">
-                    <span class="text-xs text-gray-500">メートル</span>
-                `;
+                li.innerHTML = `<input type="number" value="${d.value}" onchange="editDistance('${d.id}', this.value)" class="flex-1 bg-transparent border-b border-transparent hover:border-gray-400 focus:border-blue-500 focus:bg-white px-1 py-0.5 text-sm outline-none"><span class="text-xs text-gray-500">m</span>`;
                 dList.appendChild(li);
             });
         }
 
-        // --- 5. タブ2: データベース作成＆ストップウォッチロジック ---
+        // --- タブ2: 計測＆ストップウォッチ ---
         function updateStopwatchDisplay() {
             document.getElementById('stopwatch-display').innerText = formatTime(swStatus.elapsedTime / 1000);
-            
-            const resetBtn = document.getElementById('sw-reset-btn');
-            const clearBtn = document.getElementById('sw-clear-splits-btn');
             const startStopBtn = document.getElementById('sw-start-stop-btn');
-
-            resetBtn.disabled = swStatus.isRunning;
-            clearBtn.disabled = swStatus.isRunning;
-
+            
             if(swStatus.isRunning) {
-                resetBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                clearBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 startStopBtn.innerText = "ストップ";
                 startStopBtn.className = "px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded shadow transition w-32";
             } else {
-                resetBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                clearBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 startStopBtn.innerText = "スタート";
                 startStopBtn.className = "px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded shadow transition w-32";
             }
@@ -437,70 +445,61 @@
 
         function recordSplit() {
             const currentSeconds = swStatus.elapsedTime / 1000;
-            const data = groupData[currentGroupIndex];
             
             let defRunnerId = "";
             let defDistanceVal = 0;
-            if (data.splits.length > 0) {
-                const lastSplit = data.splits[data.splits.length - 1];
-                defRunnerId = lastSplit.runnerId;
-                defDistanceVal = lastSplit.distanceValue;
+            
+            if (currentGroupData.splits.length > 0) {
+                const lastSplit = currentGroupData.splits[currentGroupData.splits.length - 1];
+                defRunnerId = lastSplit.runnerId || "";
+                defDistanceVal = lastSplit.distanceValue || 0;
             } else {
-                if (data.runners.length > 0) defRunnerId = data.runners[0].id;
-                if (data.distances.length > 0) defDistanceVal = data.distances[0].value;
+                if (currentGroupData.runners.length > 0) defRunnerId = currentGroupData.runners[0].id;
+                if (currentGroupData.distances.length > 0) defDistanceVal = currentGroupData.distances[0].value;
             }
 
-            data.splits.push({
-                id: 's_' + Date.now() + Math.random(),
+            const id = 's_' + Date.now() + Math.floor(Math.random()*100);
+            database.ref(`timer_system/groups/group_${currentGroupIndex}/splits/${id}`).set({
+                id,
                 time: currentSeconds,
                 runnerId: defRunnerId,
                 distanceValue: defDistanceVal
             });
-
-            saveData();
-            renderTab2Table();
         }
 
         function clearSplits() {
             if (swStatus.isRunning) return;
-            if (confirm("このグループのすべてのスプリット記録を消去しますか？")) {
-                groupData[currentGroupIndex].splits = [];
-                saveData();
-                renderTab2Table();
+            if (confirm("このグループのすべてのスプリット記録をオンライン上から消去しますか？")) {
+                database.ref(`timer_system/groups/group_${currentGroupIndex}/splits`).remove();
             }
         }
 
         function updateSplitData(splitId, field, value) {
-            const data = groupData[currentGroupIndex];
-            const split = data.splits.find(s => s.id === splitId);
-            if (!split) return;
-
-            if (field === 'time') {
-                split.time = parseFormattedTimeToSeconds(value);
-            } else if (field === 'runnerId') {
-                split.runnerId = value;
-            } else if (field === 'distanceValue') {
-                split.distanceValue = parseInt(value, 10) || 0;
-            }
-            saveData();
+            let finalVal = value;
+            if (field === 'time') finalVal = parseFormattedTimeToSeconds(value);
+            if (field === 'distanceValue') finalVal = parseInt(value, 10) || 0;
+            
+            database.ref(`timer_system/groups/group_${currentGroupIndex}/splits/${splitId}/${field}`).set(finalVal);
         }
 
         function renderTab2Table() {
-            const data = groupData[currentGroupIndex];
             const sTbody = document.getElementById('splits-tbody');
             sTbody.innerHTML = '';
 
-            data.splits.forEach((split, idx) => {
+            // 記録順にソートして表示
+            const sortedSplits = [...currentGroupData.splits].sort((a,b) => a.time - b.time);
+
+            sortedSplits.forEach((split, idx) => {
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-gray-50 border-b";
 
                 let runnerOptions = `<option value="">未割り当て</option>`;
-                data.runners.forEach(r => {
+                currentGroupData.runners.forEach(r => {
                     runnerOptions += `<option value="${r.id}" ${split.runnerId === r.id ? 'selected' : ''}>${r.name}</option>`;
                 });
 
                 let distanceOptions = `<option value="0">未設定</option>`;
-                data.distances.forEach(d => {
+                currentGroupData.distances.forEach(d => {
                     distanceOptions += `<option value="${d.value}" ${split.distanceValue === d.value ? 'selected' : ''}>${d.value}m</option>`;
                 });
 
@@ -524,21 +523,20 @@
             });
         }
 
-        // --- 6. タブ1: 結果共有ロジック ---
+        // --- タブ1: 結果共有 ---
         function renderTab1() {
-            const data = groupData[currentGroupIndex];
             const rTbody = document.getElementById('realtime-tbody');
             rTbody.innerHTML = '';
             
-            data.runners.forEach(runner => {
-                const rSplits = data.splits.filter(s => s.runnerId === runner.id);
+            currentGroupData.runners.forEach(runner => {
+                const rSplits = currentGroupData.splits.filter(s => s.runnerId === runner.id);
                 
                 let maxTime = 0;
                 let totalDistance = 0;
                 
                 if(rSplits.length > 0) {
                     maxTime = Math.max(...rSplits.map(s => s.time));
-                    totalDistance = rSplits.reduce((sum, s) => sum + s.distanceValue, 0);
+                    totalDistance = rSplits.reduce((sum, s) => sum + (s.distanceValue || 0), 0);
                 }
 
                 const paceStr = calculatePace(maxTime, totalDistance);
@@ -555,59 +553,118 @@
                 rTbody.appendChild(tr);
             });
 
-            if(data.runners.length === 0) {
-                rTbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400">タブ3でランナーを登録してください。</td></tr>`;
+            if(currentGroupData.runners.length === 0) {
+                rTbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400">「DB作成」または「登録」から設定してください。</td></tr>`;
             }
         }
 
         function showRunnerDetail(runnerId) {
-            const data = groupData[currentGroupIndex];
-            const runner = data.runners.find(r => r.id === runnerId);
+            const runner = currentGroupData.runners.find(r => r.id === runnerId);
             if (!runner) return;
 
             document.getElementById('runner-list-view').classList.replace('block', 'hidden');
             document.getElementById('runner-detail-view').classList.replace('hidden', 'block');
-            document.getElementById('detail-runner-name').innerText = `${runner.name} さんの詳細データ`;
+            document.getElementById('detail-runner-name').innerText = `${runner.name} さんのオンライン詳細`;
 
-            const rSplits = data.splits.filter(s => s.runnerId === runnerId).sort((a, b) => a.time - b.time);
+            const rSplits = currentGroupData.splits.filter(s => s.runnerId === runnerId).sort((a, b) => a.time - b.time);
             const tbody = document.getElementById('detail-tbody');
             tbody.innerHTML = '';
 
             let accumDistance = 0;
             for (let i = 0; i < rSplits.length; i++) {
                 const current = rSplits[i];
-                accumDistance += current.distanceValue;
+                accumDistance += (current.distanceValue || 0);
 
                 const pointPace = calculatePace(current.time, accumDistance);
 
                 let lapTime = current.time;
-                let lapDist = current.distanceValue;
+                let lapDist = current.distanceValue || 0;
                 if (i > 0) {
                     lapTime = current.time - rSplits[i-1].time;
                 }
                 const lapPace = calculatePace(lapTime, lapDist);
 
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-gray-50";
+                tr.className = "hover:bg-gray-50 border-b";
                 tr.innerHTML = `
                     <td class="p-2 border font-mono">${formatTime(current.time)}</td>
                     <td class="p-2 border">${accumDistance}m</td>
-                    <td class="p-2 border text-blue-600 font-medium">${pointPace}</td>
+                    <td class="p-2 border text-blue-600 font-medium text-xs">${pointPace}</td>
                     <td class="p-2 border font-mono">${formatTime(lapTime)}</td>
                     <td class="p-2 border">${lapDist}m</td>
-                    <td class="p-2 border text-green-600 font-medium">${lapPace}</td>
+                    <td class="p-2 border text-green-600 font-medium text-xs">${lapPace}</td>
                 `;
                 tbody.appendChild(tr);
             }
 
             if(rSplits.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-400">データが割り当てられていません。</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-400">データがありません。</td></tr>`;
             }
         }
 
         function hideRunnerDetail() {
             document.getElementById('runner-detail-view').classList.replace('block', 'hidden');
             document.getElementById('runner-list-view').classList.replace('hidden', 'block');
+        }
+
+        // --- タブ4: リアルタイムインカムチャット ---
+        function startChatSync(groupIndex) {
+            const chatRef = database.ref(`timer_system/chat/group_${groupIndex}`).limitToLast(30);
+            chatRef.on('value', (snapshot) => {
+                const chatBox = document.getElementById('chat-messages');
+                chatBox.innerHTML = '';
+                const data = snapshot.val();
+                if (!data) return;
+
+                // タイムスタンプ順に並び替え
+                const sortedMessages = Object.values(data).sort((a,b) => a.timestamp - b.timestamp);
+                
+                sortedMessages.forEach((msg) => {
+                    const div = document.createElement('div');
+                    const isMe = msg.sender === currentGuardianName;
+                    div.className = `p-2 rounded max-w-[85%] ${isMe ? 'bg-blue-100 ml-auto border border-blue-200' : 'bg-white border'}`;
+                    div.innerHTML = `
+                        <div class="text-[10px] text-gray-500 font-bold">${msg.sender}</div>
+                        <div class="text-sm mt-0.5 break-all">${msg.text}</div>
+                    `;
+                    chatBox.appendChild(div);
+                });
+
+                // 最新のメッセージを取得（新着通知用）
+                const lastMsg = sortedMessages[sortedMessages.length - 1];
+                
+                if (!isFirstChatLoad) {
+                    if (lastMsg && lastMsg.sender !== currentGuardianName) {
+                        // 別のタブを開いていたら通知バッジを点灯
+                        if (activeTab !== 4) {
+                            document.getElementById('chat-badge').classList.remove('hidden');
+                        }
+                    }
+                }
+                
+                isFirstChatLoad = false;
+                scrollChatToBottom();
+            });
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text || currentGroupIndex === null) return;
+
+            const chatRef = database.ref(`timer_system/chat/group_${currentGroupIndex}`);
+            chatRef.push({
+                sender: currentGuardianName,
+                text: text,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            input.value = '';
+        }
+
+        function scrollChatToBottom() {
+            const chatBox = document.getElementById('chat-messages');
+            chatBox.scrollTop = chatBox.scrollHeight;
         }
     </script>
 </body>
