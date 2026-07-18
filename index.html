@@ -3,632 +3,611 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE RUNNING ACADEMY LIVE TIMER - COMPLETE</title>
+    <title>オンラインタイマーシステム（谷本さん案・ログイン機能付）</title>
+    <!-- Tailwind CSS (デザイン調整用) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-800">
+<body class="bg-gray-100 min-h-screen text-gray-800 font-sans">
 
-    <!-- ==================== 1. ログイン画面 ==================== -->
-    <div id="pageLogin" class="max-w-md mx-auto p-6 mt-10 bg-white rounded-3xl shadow-xl border border-slate-200">
-        <h1 class="text-2xl font-black text-slate-800 mb-6 text-center">THE RUNNING ACADEMY<br><span class="text-sky-600 text-lg">LIVE TIMER システム</span></h1>
-        <div class="space-y-4">
-            <div>
-                <label class="block text-sm font-bold text-slate-600 mb-1">計測者名</label>
-                <input type="text" id="userName" placeholder="あなたの名前" class="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:border-sky-500">
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-slate-600 mb-1">入室する部屋</label>
-                <select id="roomSelect" class="w-full p-3 border border-slate-300 rounded-xl bg-white focus:outline-none focus:border-sky-500">
-                    <option value="room1">Room 1</option>
-                    <option value="room2">Room 2</option>
-                    <option value="room3">Room 3</option>
-                </select>
-            </div>
-            <button onclick="login()" class="w-full bg-sky-600 hover:bg-sky-700 text-white p-4 rounded-2xl font-black text-lg shadow-md transition-all">ログイン入室</button>
-        </div>
-    </div>
-
-    <!-- ==================== 2. メイン画面 (全機能完全統合) ==================== -->
-    <div id="pageMain" class="hidden max-w-md mx-auto p-4 pb-32">
+    <div id="app" class="max-w-4xl mx-auto p-4">
         
-        <!-- 部屋情報 ＆ 部屋クイック切り替え -->
-        <div class="flex justify-between items-center mb-4 px-2">
-            <div>
-                <span class="text-xs font-bold text-slate-400 block">CURRENT ROOM</span>
-                <span id="currentRoomDisplay" class="text-xl font-black text-slate-700">Room 1</span>
-            </div>
-            <div class="flex gap-2">
-                <select id="quickRoomChange" onchange="changeRoom(this.value)" class="text-xs bg-white border border-slate-300 rounded-lg px-2 py-1 font-bold">
-                    <option value="room1">Room 1へ切替</option>
-                    <option value="room2">Room 2へ切替</option>
-                    <option value="room3">Room 3へ切替</option>
-                </select>
-                <button onclick="logout()" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold px-2 py-1 rounded-lg">退出</button>
-            </div>
-        </div>
-
-        <!-- タイマー・コントロールエリア (STOPボタン追加・大型化) -->
-        <div class="bg-slate-900 text-white rounded-3xl p-5 shadow-xl mb-4 text-center border-4 border-slate-800">
-            <div id="mainTimer" class="text-5xl font-mono font-black text-emerald-400 tabular-nums my-1">00:00.00</div>
-            <div class="flex justify-center gap-3 mt-3">
-                <button id="startBtn" class="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-6 py-2 rounded-xl text-sm transition-all shadow-md">START</button>
-                <button id="stopBtn" class="bg-rose-500 hover:bg-rose-600 text-white font-black px-6 py-2 rounded-xl text-sm transition-all shadow-md">STOP</button>
-                <button onclick="exportCSV()" class="bg-slate-600 hover:bg-slate-700 text-white font-black px-6 py-2 rounded-xl text-sm transition-all shadow-md">CSV出力</button>
+        <!-- 0. ログイン画面（初期状態：表示） -->
+        <div id="login-screen" class="block max-w-md mx-auto my-20 bg-white p-8 rounded-lg shadow-md border border-gray-200">
+            <h1 class="text-2xl font-bold text-center mb-6 text-blue-600">システムログイン</h1>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">保護名（お名前）</label>
+                    <input type="text" id="login-guardian-name" placeholder="保護名を入力してください" class="w-full px-3 py-2 border rounded focus:outline-blue-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">合言葉</label>
+                    <input type="password" id="login-password" placeholder="合言葉を入力" class="w-full px-3 py-2 border rounded focus:outline-blue-500 text-sm">
+                </div>
+                <div id="login-error" class="text-red-500 text-sm font-medium hidden">※合言葉が違うか、保護名が入力されていません。</div>
+                <button onclick="checkLogin()" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded shadow transition text-sm">
+                    ログインして進む
+                </button>
             </div>
         </div>
 
-        <!-- 先取りタイム（Quick Lap）機能エリア -->
-        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 shadow-sm">
-            <div class="flex justify-between items-center mb-2">
-                <h3 class="font-black text-amber-800 text-sm flex items-center gap-1">⏱️ 先取りタイム機能</h3>
-                <button onclick="triggerQuickLap()" class="bg-amber-500 hover:bg-amber-600 text-white font-black px-3 py-1 rounded-lg text-xs shadow">タイム先取</button>
+        <!-- 1. グループ選択画面（初期状態：非表示） -->
+        <div id="group-selection-screen" class="hidden">
+            <h1 class="text-2xl font-bold text-center my-8 text-blue-600">オンラインタイマーシステム</h1>
+            <div class="text-center mb-6 bg-blue-50 text-blue-700 py-2 px-4 rounded inline-block mx-auto w-full max-w-xs border border-blue-200 text-sm">
+                ログイン中: <span id="display-guardian-name-top" class="font-bold"></span>
             </div>
-            <div id="quickLapPool" class="flex flex-wrap gap-2 text-xs max-h-24 overflow-y-auto pt-1">
-                <span class="text-slate-400 italic">ストックされた先取りタイムはありません</span>
-            </div>
-        </div>
-
-        <!-- 割り当て（Pool）表示エリア -->
-        <div class="bg-sky-50 border border-sky-100 rounded-2xl p-4 mb-4 shadow-sm">
-            <h2 class="font-black text-sky-800 text-sm mb-2 flex items-center gap-1">🏊 割り当て中メンバー (Pool)</h2>
-            <div id="poolList" class="flex gap-2 overflow-x-auto pb-1 min-h-[36px]">
-                <span class="text-slate-400 text-xs italic">プールされている選手はいません</span>
+            <p class="text-center text-gray-600 mb-6 text-sm">管理・計測するグループを選択してください。</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                <button onclick="selectGroup(0)" class="p-6 bg-white hover:bg-blue-50 border-2 border-blue-500 rounded-lg shadow-sm text-center font-bold text-lg transition text-blue-700">グループ 1</button>
+                <button onclick="selectGroup(1)" class="p-6 bg-white hover:bg-blue-50 border-2 border-blue-500 rounded-lg shadow-sm text-center font-bold text-lg transition text-blue-700">グループ 2</button>
+                <button onclick="selectGroup(2)" class="p-6 bg-white hover:bg-blue-50 border-2 border-blue-500 rounded-lg shadow-sm text-center font-bold text-lg transition text-blue-700">グループ 3</button>
+                <button onclick="selectGroup(3)" class="p-6 bg-white hover:bg-blue-50 border-2 border-blue-500 rounded-lg shadow-sm text-center font-bold text-lg transition text-blue-700">グループ 4</button>
+                <button onclick="selectGroup(4)" class="p-6 bg-white hover:bg-blue-50 border-2 border-blue-500 rounded-lg shadow-sm text-center font-bold text-lg transition text-blue-700">グループ 5</button>
             </div>
         </div>
 
-        <!-- 選手レーン一覧 (ドラッグ＆ドロップ並び替え対応) -->
-        <div id="runnersList" class="space-y-3"></div>
+        <!-- 2. メインシステム画面 (グループ選択後・初期状態：非表示) -->
+        <div id="main-system-screen" class="hidden">
+            <!-- 上部ヘッダー -->
+            <div class="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm mb-4 border border-gray-200">
+                <div>
+                    <h2 id="current-group-title" class="text-xl font-bold text-blue-600">グループ X</h2>
+                    <span class="text-xs text-gray-500 block mt-0.5">保護名: <span id="display-guardian-name-main" class="font-medium text-gray-700"></span></span>
+                </div>
+                <button onclick="backToGroupSelection()" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded font-medium transition text-sm">
+                    ← グループ選択に戻る
+                </button>
+            </div>
 
-        <!-- 下部：インカム ＆ 全体ログ履歴管理エリア -->
-        <div class="grid grid-cols-1 gap-4 mt-6">
-            <!-- インカム機能 -->
-            <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-                <h2 class="text-sm font-black text-slate-700 mb-2 flex items-center gap-1">💬 リアルタイム・インカム</h2>
-                <div id="intercomLogs" class="space-y-1.5 h-40 overflow-y-auto mb-2 p-2 bg-slate-50 border border-slate-100 rounded-xl text-xs"></div>
-                <div class="flex gap-2">
-                    <input type="text" id="intercomInput" placeholder="メッセージを入力..." class="flex-1 border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-sky-500">
-                    <button id="intercomSendBtn" onclick="sendIntercom()" class="bg-sky-600 hover:bg-sky-700 text-white px-4 py-1.5 rounded-xl text-xs font-black shadow transition-all">送信</button>
+            <!-- タブ切り替えボタン -->
+            <div class="flex border-b border-gray-300 mb-4 bg-white rounded-t-lg overflow-hidden shadow-sm">
+                <button id="tab-btn-1" onclick="switchTab(1)" class="w-1/3 py-3 text-center font-bold border-b-4 border-blue-500 text-blue-600 bg-blue-50">結果共有</button>
+                <button id="tab-btn-2" onclick="switchTab(2)" class="w-1/3 py-3 text-center font-bold border-b-4 border-transparent text-gray-600 hover:bg-gray-50">データベース作成</button>
+                <button id="tab-btn-3" onclick="switchTab(3)" class="w-1/3 py-3 text-center font-bold border-b-4 border-transparent text-gray-600 hover:bg-gray-50">登録</button>
+            </div>
+
+            <!-- ○結果共有タブ（タブ1） -->
+            <div id="tab-content-1" class="block space-y-4">
+                <!-- 一覧画面 -->
+                <div id="runner-list-view" class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-lg font-bold mb-3 border-b pb-2 text-gray-700">ランナー別リアルタイム状況</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100 text-sm">
+                                    <th class="p-3 border">ランナー名</th>
+                                    <th class="p-3 border">タイム</th>
+                                    <th class="p-3 border">距離</th>
+                                    <th class="p-3 border">ペース</th>
+                                </tr>
+                            </thead>
+                            <tbody id="realtime-tbody">
+                                <!-- JSで動的生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 詳細画面 -->
+                <div id="runner-detail-view" class="hidden bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h3 id="detail-runner-name" class="text-lg font-bold text-gray-700">◯◯ さんの詳細データ</h3>
+                        <button onclick="hideRunnerDetail()" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded font-medium text-sm transition">
+                            一覧に戻る
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="p-2 border">スプリットタイム</th>
+                                    <th class="p-2 border">地点距離</th>
+                                    <th class="p-2 border">地点ペース</th>
+                                    <th class="p-2 border">ラップタイム</th>
+                                    <th class="p-2 border">ラップ距離</th>
+                                    <th class="p-2 border">ラップペース</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detail-tbody">
+                                <!-- JSで動的生成 -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
-            <!-- 全体ラップ履歴ログ（確認・管理用） -->
-            <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-                <h2 class="text-sm font-black text-slate-700 mb-2 flex items-center gap-1">📜 直近のラップ履歴 (全体)</h2>
-                <div id="globalLapLogs" class="space-y-1 h-32 overflow-y-auto p-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-mono">
-                    <div class="text-slate-400 italic">履歴はありません</div>
+            <!-- ○データベース作成タブ（タブ2） -->
+            <div id="tab-content-2" class="hidden space-y-4">
+                <!-- ストップウォッチ本体 -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 text-center">
+                    <div id="stopwatch-display" class="font-mono text-5xl sm:text-6xl font-bold text-gray-800 mb-6 tracking-wider">00:00.00</div>
+                    <div class="flex flex-wrap justify-center gap-3">
+                        <button id="sw-start-stop-btn" onclick="toggleStopwatch()" class="px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded shadow transition w-32">スタート</button>
+                        <button id="sw-reset-btn" onclick="resetStopwatch()" class="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded shadow transition w-32">リセット</button>
+                        <button id="sw-split-btn" onclick="recordSplit()" class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded shadow transition w-32">スプリット</button>
+                        <button id="sw-clear-splits-btn" onclick="clearSplits()" class="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded shadow transition w-40">スプリット全消去</button>
+                    </div>
+                </div>
+
+                <!-- 割り当て・修正データベース -->
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-lg font-bold mb-3 border-b pb-2 text-gray-700">スプリット割り当てデータ管理</h3>
+                    <p class="text-xs text-gray-500 mb-2">※ここでの修正はリアルタイムに保存されます（入力中の画面のガタつきはありません）</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="p-2 border w-12 text-center">No</th>
+                                    <th class="p-2 border w-36">スプリットタイム (手動修正可)</th>
+                                    <th class="p-2 border w-44">担当ランナー</th>
+                                    <th class="p-2 border w-36">ラップ距離</th>
+                                </tr>
+                            </thead>
+                            <tbody id="splits-tbody">
+                                <!-- JSで動的生成 -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
+
+            <!-- ○登録タブ（タブ3） -->
+            <div id="tab-content-3" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- ランナー登録 -->
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-lg font-bold mb-3 border-b pb-2 text-gray-700">ランナー登録</h3>
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="runner-input" placeholder="ランナー名を入力" class="flex-1 px-3 py-2 border rounded text-sm focus:outline-blue-500">
+                        <button onclick="addRunner()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded text-sm transition">登録</button>
+                    </div>
+                    <ul id="runner-list" class="space-y-2 max-h-60 overflow-y-auto">
+                        <!-- 動的生成 -->
+                    </ul>
+                </div>
+
+                <!-- ラップ距離登録 -->
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-lg font-bold mb-3 border-b pb-2 text-gray-700">ラップ距離登録</h3>
+                    <div class="flex gap-2 mb-4">
+                        <input type="number" id="distance-input" placeholder="距離 (メートル)" class="flex-1 px-3 py-2 border rounded text-sm focus:outline-blue-500">
+                        <button onclick="addDistance()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded text-sm transition">登録</button>
+                    </div>
+                    <ul id="distance-list" class="space-y-2 max-h-60 overflow-y-auto">
+                        <!-- 動的生成 -->
+                    </ul>
+                </div>
+            </div>
+
         </div>
     </div>
 
-    <!-- ==================== 3. システムロジック制御 ==================== -->
+    <!-- システムロジックスクリプト -->
     <script>
-        // 【Firebase設定】
-        const firebaseConfig = {
-  apiKey: "AIzaSyDmrffBMh2QaGPhm08ipoAkJEXBCN7bniM",
-  authDomain: "running-timer-v2.firebaseapp.com",
-  projectId: "running-timer-v2",
-  storageBucket: "running-timer-v2.firebasestorage.app",
-  messagingSenderId: "1030389620206",
-  appId: "1:1030389620206:web:e08a72a3be143a382402ff"
-};
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        // --- 1. データ構造の定義と初期化 ---
+        const GROUPS_COUNT = 5;
+        let currentGroupIndex = null;
+        let currentGuardianName = ""; // ログインした保護名を保持
 
-        // アプリケーション用グローバル状態
-        let userName = "";
-        let currentRoom = "room1";
-        let isRunning = false;
-        let startTime = 0;
-        let elapsedTime = 0;
-        let localRunnersData = {};
-        let localQuickLaps = {};
-        let selectedQuickLapId = null;
+        // 各グループごとの独立したデータ
+        let groupData = Array.from({ length: GROUPS_COUNT }, () => ({
+            runners: [],      
+            distances: [],    
+            splits: []        
+        }));
 
-        // Firebaseリアルタイムリスナー解除用の参照保持
-        let timerRef, runnersRef, logsRef, quickLapsRef;
-
-        // ログインと入室処理
-        function login() {
-            userName = document.getElementById('userName').value.trim();
-            if (!userName) {
-                alert("計測者の名前を入力してください。");
-                return;
-            }
-            currentRoom = document.getElementById('roomSelect').value;
-            document.getElementById('quickRoomChange').value = currentRoom;
-            document.getElementById('currentRoomDisplay').innerText = currentRoom.toUpperCase();
-
-            document.getElementById('pageLogin').classList.add('hidden');
-            document.getElementById('pageMain').classList.remove('hidden');
-
-            initApp();
-        }
-
-        // ログアウト退出
-        function logout() {
-            if(timerRef) timerRef.off();
-            if(runnersRef) runnersRef.off();
-            if(logsRef) logsRef.off();
-            if(quickLapsRef) quickLapsRef.off();
-
-            document.getElementById('pageMain').classList.add('hidden');
-            document.getElementById('pageLogin').classList.remove('hidden');
-        }
-
-        // 部屋切り替えロジック
-        function changeRoom(room) {
-            currentRoom = room;
-            document.getElementById('roomSelect').value = room;
-            document.getElementById('currentRoomDisplay').innerText = room.toUpperCase();
-
-            if(timerRef) timerRef.off();
-            if(runnersRef) runnersRef.off();
-            if(logsRef) logsRef.off();
-            if(quickLapsRef) quickLapsRef.off();
-
-            initApp();
-        }
-
-        // データベースとのリアルタイム同期初期化
-        function initApp() {
-            // 1. タイマー同期
-            timerRef = db.ref(`${currentRoom}/timer`);
-            timerRef.on('value', snapshot => {
-                const data = snapshot.val() || {};
-                isRunning = data.isRunning || false;
-                startTime = data.startTime || 0;
-                elapsedTime = data.elapsedTime || 0;
-            });
-
-            // 2. 選手データ同期
-            runnersRef = db.ref(`${currentRoom}/runners`);
-            runnersRef.on('value', snapshot => {
-                localRunnersData = snapshot.val() || {};
-                // 万が一Firebase内が空っぽだった場合の自動初期データ生成
-                if (Object.keys(localRunnersData).length === 0) {
-                    setupDefaultRunners();
-                    return;
-                }
-                renderRunners();
-                renderPool();
-                renderGlobalHistory();
-            });
-
-            // 3. インカムチャット同期 (最大直近50件取得)
-            logsRef = db.ref(`${currentRoom}/logs`);
-            const logsContainer = document.getElementById('intercomLogs');
-            logsContainer.innerHTML = "";
-            logsRef.limitToLast(50).on('child_added', snapshot => {
-                const data = snapshot.val();
-                if (data) {
-                    const div = document.createElement('div');
-                    div.className = "py-0.5 border-b border-slate-100 last:border-0";
-                    div.innerHTML = `<span class="font-bold text-slate-700">[${data.name}]</span> <span class="text-slate-600">${data.msg}</span>`;
-                    logsContainer.appendChild(div);
-                    logsContainer.scrollTop = logsContainer.scrollHeight; // 自動スクロール
-                }
-            });
-
-            // 4. 先取りタイム(Quick Lap)同期
-            quickLapsRef = db.ref(`${currentRoom}/quickLaps`);
-            quickLapsRef.on('value', snapshot => {
-                localQuickLaps = snapshot.val() || {};
-                renderQuickLaps();
-            });
-        }
-
-        // 初期選手データの生成フォールバック
-        function setupDefaultRunners() {
-            const defaults = {
-                1: { id: 1, name: "選手 A", sortOrder: 1, isPooled: false, laps: [] },
-                2: { id: 2, name: "選手 B", sortOrder: 2, isPooled: false, laps: [] },
-                3: { id: 3, name: "選手 C", sortOrder: 3, isPooled: false, laps: [] },
-                4: { id: 4, name: "選手 D", sortOrder: 4, isPooled: false, laps: [] }
-            };
-            db.ref(`${currentRoom}/runners`).set(defaults);
-        }
-
-        // タイマー更新ループ (ミリ秒のリアルタイム表示制御)
-        setInterval(() => {
-            let currentTotal = elapsedTime;
-            if (isRunning) {
-                currentTotal = Date.now() - startTime + elapsedTime;
-            }
-            document.getElementById('mainTimer').innerText = formatTime(currentTotal);
-
-            // 選手レーンごとの「直Lapからの経過リアルタイム時間」を更新
-            Object.values(localRunnersData).forEach(r => {
-                const row = document.getElementById(`runnerRow-${r.id}`);
-                if (!row) return;
-                const laps = r.laps || [];
-                const lastTimestamp = laps.length > 0 ? (laps[laps.length - 1].timestamp || 0) : 0;
-                const display = row.querySelector('.live-lap-timer');
-                if (display) {
-                    if (lastTimestamp === 0 && !isRunning && elapsedTime === 0) {
-                        display.innerText = "00:00.00";
-                    } else {
-                        display.innerText = formatTime(currentTotal - lastTimestamp);
-                    }
-                }
-            });
-        }, 50);
-
-        // 時間フォーマット関数 (分:秒.10ミリ秒)
-        function formatTime(ms) {
-            if (ms < 0) ms = 0;
-            const m = Math.floor(ms / 60000);
-            const s = Math.floor((ms % 60000) / 1000);
-            const ms10 = Math.floor((ms % 1000) / 10);
-            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms10).padStart(2, '0')}`;
-        }
-
-        // STARTボタン
-        document.getElementById('startBtn').onclick = () => {
-            if (isRunning) return;
-            db.ref(`${currentRoom}/timer`).update({
-                isRunning: true,
-                startTime: Date.now()
-            });
-            sendSystemMsg("計測スタートしました");
+        // ストップウォッチの動作状態
+        let swStatus = {
+            isRunning: false,
+            startTime: 0,
+            elapsedTime: 0, 
+            intervalId: null
         };
 
-        // STOPボタン
-        document.getElementById('stopBtn').onclick = () => {
-            if (!isRunning) return;
-            const currentElapsed = Date.now() - startTime + elapsedTime;
-            db.ref(`${currentRoom}/timer`).update({
-                isRunning: false,
-                elapsedTime: currentElapsed
-            });
-            sendSystemMsg("計測ストップしました");
-        };
-
-        // システムログ書き込み
-        function sendSystemMsg(msg) {
-            db.ref(`${currentRoom}/logs`).push({
-                name: "SYSTEM",
-                msg: msg,
-                timestamp: Date.now()
-            });
-        }
-
-        // インカムメッセージ手動送信
-        function sendIntercom() {
-            const input = document.getElementById('intercomInput');
-            const text = input.value.trim();
-            if (!text) return;
-            db.ref(`${currentRoom}/logs`).push({
-                name: userName,
-                msg: text,
-                timestamp: Date.now()
-            });
-            input.value = "";
-        }
-
-        // インカムのEnterキー送信対応
-        document.getElementById('intercomInput').onkeydown = (e) => {
-            if(e.key === 'Enter') sendIntercom();
-        };
-
-        // ==================== 選手レーン表示 ＆ ドラッグ並び替え ====================
-        function renderRunners() {
-            const list = document.getElementById('runnersList');
-            list.innerHTML = "";
-
-            const sortedRunners = Object.values(localRunnersData).sort((a, b) => (a.sortOrder || a.id) - (b.sortOrder || b.id));
-
-            if (sortedRunners.length === 0) {
-                list.innerHTML = `<div class="text-center p-4 text-slate-400">選手データが存在しません</div>`;
-                return;
-            }
-
-            sortedRunners.forEach(r => {
-                const laps = r.laps || [];
-                const lastLapTime = laps.length > 0 ? laps[laps.length - 1].lapTime : "---";
-
-                const div = document.createElement('div');
-                div.id = `runnerRow-${r.id}`;
-                div.className = "bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3 transition-all";
-                div.setAttribute('draggable', 'true');
-
-                // ドラッグ＆ドロップイベント設定
-                div.ondragstart = (e) => {
-                    e.dataTransfer.setData('text/plain', r.id);
-                    div.classList.add('opacity-40', 'bg-slate-100');
-                };
-                div.ondragend = () => {
-                    div.classList.remove('opacity-40', 'bg-slate-100');
-                };
-                div.ondragover = (e) => {
-                    e.preventDefault();
-                    div.classList.add('border-sky-400', 'border-dashed');
-                };
-                div.ondragleave = () => {
-                    div.classList.remove('border-sky-400', 'border-dashed');
-                };
-                div.ondrop = (e) => {
-                    e.preventDefault();
-                    div.classList.remove('border-sky-400', 'border-dashed');
-                    const sourceId = e.dataTransfer.getData('text/plain');
-                    if (sourceId && sourceId !== String(r.id)) {
-                        reorderRunners(Number(sourceId), r.id);
-                    }
-                };
-
-                // 大型UI ＆ 直Lapボタン構成
-                div.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2">
-                                <span class="cursor-grab text-slate-300 font-bold select-none text-xl">☰</span>
-                                <div class="text-2xl font-black text-slate-800 tracking-tight">${r.name}</div>
-                            </div>
-                            <div class="text-sm text-slate-600 font-mono mt-1 pl-6">
-                                直Lap: <span class="live-lap-timer text-lg font-bold text-sky-600">00:00.00</span> 
-                                <span class="text-xs text-slate-400 ml-2">(前回: ${lastLapTime} / 計${laps.length}回)</span>
-                            </div>
-                        </div>
-                        <button onclick="handleDirectLap(${r.id}, '${r.name}')" class="bg-sky-500 hover:bg-sky-600 active:scale-95 text-white font-black px-8 py-4 rounded-xl text-lg shadow-lg shadow-sky-100 transition-all">直Lap</button>
-                    </div>
-
-                    <!-- 下部拡張操作：Poolトグルの切り替え ＆ 先取り割当 ＆ 個別履歴の削除機能 -->
-                    <div class="border-t border-slate-100 pt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <div class="flex gap-2">
-                            <button onclick="togglePool(${r.id})" class="px-2.5 py-1 rounded-lg font-bold ${r.isPooled ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'} hover:opacity-80">
-                                ${r.isPooled ? '🏊 Poolから外す' : '🏊 Poolに送る'}
-                            </button>
-                            <button onclick="assignSelectedQuickLap(${r.id}, '${r.name}')" id="assignBtn-${r.id}" class="hidden bg-amber-500 text-white px-2.5 py-1 rounded-lg font-bold hover:bg-amber-600">
-                                🎯 先取りタイムをここに割当
-                            </button>
-                        </div>
-                        <div class="flex items-center gap-2 text-slate-400 font-mono">
-                            <button onclick="popLastLap(${r.id}, '${r.name}')" class="text-rose-500 hover:underline font-sans ${laps.length === 0 ? 'hidden' : ''}">直前の1件を削除</button>
-                        </div>
-                    </div>
-                `;
-                list.appendChild(div);
-            });
-
-            updateAssignButtonsVisibility();
-        }
-
-        // Firebase並び順(sortOrder)の入れ替えロジック
-        function reorderRunners(sourceId, targetId) {
-            const runnersArray = Object.values(localRunnersData).sort((a, b) => (a.sortOrder || a.id) - (b.sortOrder || b.id));
-            const sourceIdx = runnersArray.findIndex(r => r.id === sourceId);
-            const targetIdx = runnersArray.findIndex(r => r.id === targetId);
-
-            if (sourceIdx !== -1 && targetIdx !== -1) {
-                const [moved] = runnersArray.splice(sourceIdx, 1);
-                runnersArray.splice(targetIdx, 0, moved);
-
-                const updates = {};
-                runnersArray.forEach((r, idx) => {
-                    updates[`/${r.id}/sortOrder`] = idx + 1;
-                });
-                db.ref(`${currentRoom}/runners`).update(updates);
+        // ローカルストレージからロード
+        if (localStorage.getItem('tanimoto_timer_data')) {
+            try {
+                groupData = JSON.parse(localStorage.getItem('tanimoto_timer_data'));
+            } catch(e) {
+                console.error("データロード失敗。初期化します。", e);
             }
         }
 
-        // プール状態(isPooled)のトグル
-        function togglePool(id) {
-            const currentStatus = localRunnersData[id].isPooled || false;
-            db.ref(`${currentRoom}/runners/${id}`).update({ isPooled: !currentStatus });
+        function saveData() {
+            localStorage.setItem('tanimoto_timer_data', JSON.stringify(groupData));
         }
 
-        // プール内表示エリアのレンダリング
-        function renderPool() {
-            const poolList = document.getElementById('poolList');
-            poolList.innerHTML = "";
+        // --- 1.5 ログイン認証処理 ---
+        function checkLogin() {
+            const guardianInput = document.getElementById('login-guardian-name').value.trim();
+            const passwordInput = document.getElementById('login-password').value.trim();
+            const errorElement = document.getElementById('login-error');
 
-            const pooledRunners = Object.values(localRunnersData).filter(r => r.isPooled);
-
-            if (pooledRunners.length === 0) {
-                poolList.innerHTML = `<span class="text-slate-400 text-xs italic">プールされている選手はいません</span>`;
-                return;
-            }
-
-            pooledRunners.forEach(r => {
-                const span = document.createElement('span');
-                span.className = "bg-sky-100 text-sky-800 text-xs font-black px-3 py-1.5 rounded-xl whitespace-nowrap border border-sky-200 flex items-center gap-1 shadow-sm";
-                span.innerHTML = `🏊 ${r.name} <button onclick="togglePool(${r.id})" class="text-sky-400 hover:text-sky-600 font-bold ml-1">×</button>`;
-                poolList.appendChild(span);
-            });
-        }
-
-        // ==================== ラップ記録 ＆ 先取りタイム ＆ 履歴削除 ====================
-        
-        // 通常の直Lap記録
-        function handleDirectLap(id, name) {
-            let currentTotal = elapsedTime;
-            if (isRunning) {
-                currentTotal = Date.now() - startTime + elapsedTime;
-            }
-            const formatted = formatTime(currentTotal);
-
-            const lapsRef = db.ref(`${currentRoom}/runners/${id}/laps`);
-            lapsRef.once('value', snapshot => {
-                const laps = snapshot.val() || [];
-                laps.push({
-                    lapTime: formatted,
-                    timestamp: currentTotal
-                });
-                lapsRef.set(laps);
-                sendSystemMsg(`${name} が直Lapを記録: ${formatted}`);
-            });
-        }
-
-        // ラップの間違い削除履歴管理
-        function popLastLap(id, name) {
-            if(!confirm(`${name} の直前のラップ記録を1件削除してよろしいですか？`)) return;
-            const lapsRef = db.ref(`${currentRoom}/runners/${id}/laps`);
-            lapsRef.once('value', snapshot => {
-                const laps = snapshot.val() || [];
-                if(laps.length > 0) {
-                    const popped = laps.pop();
-                    lapsRef.set(laps);
-                    sendSystemMsg(`${name} の最末尾のラップを削除しました (${popped.lapTime})`);
-                }
-            });
-        }
-
-        // タイム先取り（Quick Lap）ストック生成
-        function triggerQuickLap() {
-            let currentTotal = elapsedTime;
-            if (isRunning) {
-                currentTotal = Date.now() - startTime + elapsedTime;
-            }
-            const formatted = formatTime(currentTotal);
-            
-            const newLapRef = db.ref(`${currentRoom}/quickLaps`).push();
-            newLapRef.set({
-                id: newLapRef.key,
-                lapTime: formatted,
-                timestamp: currentTotal,
-                createdAt: Date.now()
-            });
-            sendSystemMsg(`タイムが先取りストックされました: ${formatted}`);
-        }
-
-        // 先取りストックプール描画
-        function renderQuickLaps() {
-            const pool = document.getElementById('quickLapPool');
-            pool.innerHTML = "";
-
-            const laps = Object.values(localQuickLaps).sort((a,b) => a.createdAt - b.createdAt);
-
-            if (laps.length === 0) {
-                pool.innerHTML = `<span class="text-slate-400 italic">ストックされた先取りタイムはありません</span>`;
-                selectedQuickLapId = null;
-                updateAssignButtonsVisibility();
-                return;
-            }
-
-            laps.forEach(l => {
-                const btn = document.createElement('button');
-                btn.className = `px-2.5 py-1.5 rounded-xl font-mono font-bold border transition-all ${selectedQuickLapId === l.id ? 'bg-amber-500 text-white border-amber-600 scale-105 ring-2 ring-amber-300' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50'}`;
-                btn.innerText = l.lapTime;
-                btn.onclick = () => {
-                    selectedQuickLapId = (selectedQuickLapId === l.id) ? null : l.id;
-                    renderQuickLaps();
-                };
-                pool.appendChild(btn);
-            });
-
-            updateAssignButtonsVisibility();
-        }
-
-        // 割り当て可能状態によるUIボタンの表示切り替え
-        function updateAssignButtonsVisibility() {
-            Object.keys(localRunnersData).forEach(id => {
-                const btn = document.getElementById(`assignBtn-${id}`);
-                if (btn) {
-                    if (selectedQuickLapId) {
-                        btn.classList.remove('hidden');
-                    } else {
-                        btn.classList.add('hidden');
-                    }
-                }
-            });
-        }
-
-        // 先取りタイムを任意の選手へ割り当て実行
-        function assignSelectedQuickLap(runnerId, runnerName) {
-            if (!selectedQuickLapId || !localQuickLaps[selectedQuickLapId]) return;
-
-            const quickLap = localQuickLaps[selectedQuickLapId];
-            const lapsRef = db.ref(`${currentRoom}/runners/${runnerId}/laps`);
-
-            lapsRef.once('value', snapshot => {
-                const laps = snapshot.val() || [];
-                laps.push({
-                    lapTime: quickLap.lapTime,
-                    timestamp: quickLap.timestamp
-                });
+            // 合言葉は「erat」、保護名は空欄でなければ許可
+            if (passwordInput === 'erat' && guardianInput !== '') {
+                currentGuardianName = guardianInput;
+                errorElement.classList.add('hidden');
                 
-                const updates = {};
-                updates[`${currentRoom}/runners/${runnerId}/laps`] = laps;
-                updates[`${currentRoom}/quickLaps/${selectedQuickLapId}`] = null; // プールから削除
-
-                db.ref().update(updates).then(() => {
-                    sendSystemMsg(`先取り時間 ${quickLap.lapTime} を ${runnerName} へ割り当て確定しました`);
-                    selectedQuickLapId = null;
-                });
-            });
+                // 画面表示の切り替え
+                document.getElementById('login-screen').classList.replace('block', 'hidden');
+                document.getElementById('group-selection-screen').classList.replace('hidden', 'block');
+                
+                // 保護名を画面に反映
+                document.getElementById('display-guardian-name-top').innerText = currentGuardianName;
+                document.getElementById('display-guardian-name-main').innerText = currentGuardianName;
+            } else {
+                errorElement.classList.remove('hidden');
+            }
         }
 
-        // 全体のタイム履歴ログの表示処理
-        function renderGlobalHistory() {
-            const container = document.getElementById('globalLapLogs');
-            container.innerHTML = "";
-
-            let allLaps = [];
-            Object.values(localRunnersData).forEach(r => {
-                const laps = r.laps || [];
-                laps.forEach(l => {
-                    allLaps.push({
-                        runnerName: r.name,
-                        lapTime: l.lapTime,
-                        timestamp: l.timestamp
-                    });
-                });
-            });
-
-            allLaps.sort((a,b) => b.timestamp - a.timestamp); // 新しい順
-
-            if (allLaps.length === 0) {
-                container.innerHTML = `<div class="text-slate-400 italic">履歴はありません</div>`;
-                return;
-            }
-
-            allLaps.slice(0, 20).forEach(l => {
-                const div = document.createElement('div');
-                div.className = "py-0.5 border-b border-slate-100 flex justify-between";
-                div.innerHTML = `<span class="text-slate-700 font-sans font-bold">${l.runnerName}</span> <span class="text-sky-600 font-bold">${l.lapTime}</span>`;
-                container.appendChild(div);
-            });
-        }
-
-        // ==================== CSV出力 (指定レイアウト) ====================
-        function exportCSV() {
-            const runners = Object.values(localRunnersData).sort((a, b) => (a.sortOrder || a.id) - (b.sortOrder || b.id));
-            if (runners.length === 0) {
-                alert("出力する選手データがありません。");
-                return;
-            }
-
-            // 指定ヘッダー: ["ラップ回数", "", 選手A, 選手B, ...]
-            let header = ["ラップ回数", ""];
-            runners.forEach(r => header.push(r.name));
-            let rows = [header];
-
-            // 最大周回（ラップ数）の取得
-            const maxLaps = Math.max(...runners.map(r => (r.laps || []).length));
-
-            // 行構築
-            for (let i = 0; i < maxLaps; i++) {
-                let row = [i + 1, ""]; // ラップ数(1始まり) ＆ B列は空欄指定
-                runners.forEach(r => {
-                    const laps = r.laps || [];
-                    row.push(laps[i] ? laps[i].lapTime : "");
-                });
-                rows.push(row);
-            }
-
-            // CSV文字列変換処理 (カンマ区切り)
-            const csvContent = rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
+        // --- 2. 画面・タブの切り替えロジック ---
+        function selectGroup(index) {
+            currentGroupIndex = index;
+            document.getElementById('group-selection-screen').classList.replace('block', 'hidden');
+            document.getElementById('main-system-screen').classList.replace('hidden', 'block');
+            document.getElementById('current-group-title').innerText = `グループ ${index + 1}`;
             
-            // Excel文字化けを防ぐためのBOM付きUTF-8 Blob生成
-            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
-            const a = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            a.href = url;
-            a.download = `${currentRoom}_RunningRecord_${new Date().toISOString().slice(0,10)}.csv`;
-            a.click();
-            URL.revokeObjectURL(url);
+            stopStopwatch();
+            swStatus.elapsedTime = 0;
+            updateStopwatchDisplay();
+
+            switchTab(1); 
+            hideRunnerDetail();
+        }
+
+        function backToGroupSelection() {
+            stopStopwatch();
+            currentGroupIndex = null;
+            document.getElementById('main-system-screen').classList.replace('block', 'hidden');
+            document.getElementById('group-selection-screen').classList.replace('hidden', 'block');
+        }
+
+        function switchTab(tabNum) {
+            for(let i=1; i<=3; i++) {
+                const content = document.getElementById(`tab-content-${i}`);
+                const btn = document.getElementById(`tab-btn-${i}`);
+                if (i === tabNum) {
+                    content.classList.replace('hidden', 'block');
+                    btn.className = "w-1/3 py-3 text-center font-bold border-b-4 border-blue-500 text-blue-600 bg-blue-50";
+                } else {
+                    content.classList.replace('block', 'hidden');
+                    btn.className = "w-1/3 py-3 text-center font-bold border-b-4 border-transparent text-gray-600 hover:bg-gray-50";
+                }
+            }
+            if(tabNum === 1) hideRunnerDetail();
+            updateViewForTab(tabNum);
+        }
+
+        function updateViewForTab(tabNum) {
+            if (currentGroupIndex === null) return;
+            if (tabNum === 1) renderTab1();
+            if (tabNum === 2) renderTab2Table();
+            if (tabNum === 3) renderTab3();
+        }
+
+        // --- 3. 計算補助共通関数（谷本さん指定ルール準拠） ---
+        function formatTime(seconds) {
+            if (isNaN(seconds) || seconds < 0) return "00:00.00";
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            const ms = Math.floor((seconds % 1) * 100);
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
+        }
+
+        function parseFormattedTimeToSeconds(str) {
+            if(str.includes(':')) {
+                const parts = str.split(':');
+                const m = parseFloat(parts[0]) || 0;
+                const s = parseFloat(parts[1]) || 0;
+                return (m * 60) + s;
+            }
+            return parseFloat(str) || 0;
+        }
+
+        function calculatePace(totalSeconds, totalMeters) {
+            if (!totalSeconds || !totalMeters) return "-分-秒/km";
+            const distanceKm = totalMeters / 1000;
+            const paceSecondsPerKm = totalSeconds / distanceKm;
+            
+            const paceMinutes = Math.floor(paceSecondsPerKm / 60);
+            const paceSeconds = Math.round(paceSecondsPerKm % 60); 
+            
+            return `${paceMinutes}分${String(paceSeconds).padStart(2, '0')}秒/km`;
+        }
+
+        // --- 4. タブ3: 登録ロジック ---
+        function addRunner() {
+            const input = document.getElementById('runner-input');
+            const name = input.value.trim();
+            if (!name) return;
+            const data = groupData[currentGroupIndex];
+            data.runners.push({ id: 'r_' + Date.now() + Math.random(), name: name });
+            input.value = '';
+            saveData();
+            renderTab3();
+        }
+
+        function editRunner(id, newName) {
+            const data = groupData[currentGroupIndex];
+            const runner = data.runners.find(r => r.id === id);
+            if (runner) {
+                runner.name = newName.trim();
+                saveData();
+            }
+        }
+
+        // ラップ距離登録
+        function addDistance() {
+            const input = document.getElementById('distance-input');
+            const value = parseInt(input.value, 10);
+            if (isNaN(value) || value <= 0) return;
+            const data = groupData[currentGroupIndex];
+            data.distances.push({ id: 'd_' + Date.now() + Math.random(), value: value });
+            input.value = '';
+            saveData();
+            renderTab3();
+        }
+
+        function editDistance(id, newValue) {
+            const data = groupData[currentGroupIndex];
+            const dist = data.distances.find(d => d.id === id);
+            if (dist) {
+                dist.value = parseInt(newValue, 10) || 0;
+                saveData();
+            }
+        }
+
+        function renderTab3() {
+            const data = groupData[currentGroupIndex];
+            const rList = document.getElementById('runner-list');
+            rList.innerHTML = '';
+            data.runners.forEach((r) => {
+                const li = document.createElement('li');
+                li.className = "flex gap-2 items-center bg-gray-50 p-2 rounded border";
+                li.innerHTML = `
+                    <input type="text" value="${r.name}" onchange="editRunner('${r.id}', this.value)" class="flex-1 bg-transparent border-b border-transparent hover:border-gray-400 focus:border-blue-500 focus:bg-white px-1 py-0.5 text-sm outline-none">
+                `;
+                rList.appendChild(li);
+            });
+
+            const dList = document.getElementById('distance-list');
+            dList.innerHTML = '';
+            data.distances.forEach((d) => {
+                const li = document.createElement('li');
+                li.className = "flex gap-2 items-center bg-gray-50 p-2 rounded border";
+                li.innerHTML = `
+                    <input type="number" value="${d.value}" onchange="editDistance('${d.id}', this.value)" class="flex-1 bg-transparent border-b border-transparent hover:border-gray-400 focus:border-blue-500 focus:bg-white px-1 py-0.5 text-sm outline-none">
+                    <span class="text-xs text-gray-500">メートル</span>
+                `;
+                dList.appendChild(li);
+            });
+        }
+
+        // --- 5. タブ2: データベース作成＆ストップウォッチロジック ---
+        function updateStopwatchDisplay() {
+            document.getElementById('stopwatch-display').innerText = formatTime(swStatus.elapsedTime / 1000);
+            
+            const resetBtn = document.getElementById('sw-reset-btn');
+            const clearBtn = document.getElementById('sw-clear-splits-btn');
+            const startStopBtn = document.getElementById('sw-start-stop-btn');
+
+            resetBtn.disabled = swStatus.isRunning;
+            clearBtn.disabled = swStatus.isRunning;
+
+            if(swStatus.isRunning) {
+                resetBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                clearBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                startStopBtn.innerText = "ストップ";
+                startStopBtn.className = "px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded shadow transition w-32";
+            } else {
+                resetBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                clearBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                startStopBtn.innerText = "スタート";
+                startStopBtn.className = "px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded shadow transition w-32";
+            }
+        }
+
+        function toggleStopwatch() {
+            if (swStatus.isRunning) {
+                stopStopwatch();
+            } else {
+                swStatus.isRunning = true;
+                swStatus.startTime = Date.now() - swStatus.elapsedTime;
+                swStatus.intervalId = setInterval(() => {
+                    swStatus.elapsedTime = Date.now() - swStatus.startTime;
+                    document.getElementById('stopwatch-display').innerText = formatTime(swStatus.elapsedTime / 1000);
+                }, 10);
+            }
+            updateStopwatchDisplay();
+        }
+
+        function stopStopwatch() {
+            swStatus.isRunning = false;
+            if (swStatus.intervalId) {
+                clearInterval(swStatus.intervalId);
+                swStatus.intervalId = null;
+            }
+            updateStopwatchDisplay();
+        }
+
+        function resetStopwatch() {
+            if (swStatus.isRunning) return;
+            swStatus.elapsedTime = 0;
+            updateStopwatchDisplay();
+        }
+
+        function recordSplit() {
+            const currentSeconds = swStatus.elapsedTime / 1000;
+            const data = groupData[currentGroupIndex];
+            
+            let defRunnerId = "";
+            let defDistanceVal = 0;
+            if (data.splits.length > 0) {
+                const lastSplit = data.splits[data.splits.length - 1];
+                defRunnerId = lastSplit.runnerId;
+                defDistanceVal = lastSplit.distanceValue;
+            } else {
+                if (data.runners.length > 0) defRunnerId = data.runners[0].id;
+                if (data.distances.length > 0) defDistanceVal = data.distances[0].value;
+            }
+
+            data.splits.push({
+                id: 's_' + Date.now() + Math.random(),
+                time: currentSeconds,
+                runnerId: defRunnerId,
+                distanceValue: defDistanceVal
+            });
+
+            saveData();
+            renderTab2Table();
+        }
+
+        function clearSplits() {
+            if (swStatus.isRunning) return;
+            if (confirm("このグループのすべてのスプリット記録を消去しますか？")) {
+                groupData[currentGroupIndex].splits = [];
+                saveData();
+                renderTab2Table();
+            }
+        }
+
+        function updateSplitData(splitId, field, value) {
+            const data = groupData[currentGroupIndex];
+            const split = data.splits.find(s => s.id === splitId);
+            if (!split) return;
+
+            if (field === 'time') {
+                split.time = parseFormattedTimeToSeconds(value);
+            } else if (field === 'runnerId') {
+                split.runnerId = value;
+            } else if (field === 'distanceValue') {
+                split.distanceValue = parseInt(value, 10) || 0;
+            }
+            saveData();
+        }
+
+        function renderTab2Table() {
+            const data = groupData[currentGroupIndex];
+            const sTbody = document.getElementById('splits-tbody');
+            sTbody.innerHTML = '';
+
+            data.splits.forEach((split, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 border-b";
+
+                let runnerOptions = `<option value="">未割り当て</option>`;
+                data.runners.forEach(r => {
+                    runnerOptions += `<option value="${r.id}" ${split.runnerId === r.id ? 'selected' : ''}>${r.name}</option>`;
+                });
+
+                let distanceOptions = `<option value="0">未設定</option>`;
+                data.distances.forEach(d => {
+                    distanceOptions += `<option value="${d.value}" ${split.distanceValue === d.value ? 'selected' : ''}>${d.value}m</option>`;
+                });
+
+                tr.innerHTML = `
+                    <td class="p-2 border text-center text-gray-500 font-mono">${idx + 1}</td>
+                    <td class="p-2 border">
+                        <input type="text" value="${formatTime(split.time)}" onchange="updateSplitData('${split.id}', 'time', this.value)" class="w-full bg-transparent border-b border-transparent hover:border-gray-400 focus:border-blue-500 focus:bg-white font-mono px-1 outline-none">
+                    </td>
+                    <td class="p-2 border">
+                        <select onchange="updateSplitData('${split.id}', 'runnerId', this.value)" class="w-full bg-transparent border border-gray-200 rounded px-1 py-0.5 outline-none focus:border-blue-500">
+                            ${runnerOptions}
+                        </select>
+                    </td>
+                    <td class="p-2 border">
+                        <select onchange="updateSplitData('${split.id}', 'distanceValue', this.value)" class="w-full bg-transparent border border-gray-200 rounded px-1 py-0.5 outline-none focus:border-blue-500">
+                            ${distanceOptions}
+                        </select>
+                    </td>
+                `;
+                sTbody.appendChild(tr);
+            });
+        }
+
+        // --- 6. タブ1: 結果共有ロジック ---
+        function renderTab1() {
+            const data = groupData[currentGroupIndex];
+            const rTbody = document.getElementById('realtime-tbody');
+            rTbody.innerHTML = '';
+            
+            data.runners.forEach(runner => {
+                const rSplits = data.splits.filter(s => s.runnerId === runner.id);
+                
+                let maxTime = 0;
+                let totalDistance = 0;
+                
+                if(rSplits.length > 0) {
+                    maxTime = Math.max(...rSplits.map(s => s.time));
+                    totalDistance = rSplits.reduce((sum, s) => sum + s.distanceValue, 0);
+                }
+
+                const paceStr = calculatePace(maxTime, totalDistance);
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-blue-50 cursor-pointer transition border-b";
+                tr.setAttribute('onclick', `showRunnerDetail('${runner.id}')`);
+                tr.innerHTML = `
+                    <td class="p-3 border font-bold text-blue-600">${runner.name} 📊</td>
+                    <td class="p-3 border font-mono">${rSplits.length > 0 ? formatTime(maxTime) : '-'}</td>
+                    <td class="p-3 border">${rSplits.length > 0 ? totalDistance + 'm' : '-'}</td>
+                    <td class="p-3 border font-medium text-gray-700">${paceStr}</td>
+                `;
+                rTbody.appendChild(tr);
+            });
+
+            if(data.runners.length === 0) {
+                rTbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400">タブ3でランナーを登録してください。</td></tr>`;
+            }
+        }
+
+        function showRunnerDetail(runnerId) {
+            const data = groupData[currentGroupIndex];
+            const runner = data.runners.find(r => r.id === runnerId);
+            if (!runner) return;
+
+            document.getElementById('runner-list-view').classList.replace('block', 'hidden');
+            document.getElementById('runner-detail-view').classList.replace('hidden', 'block');
+            document.getElementById('detail-runner-name').innerText = `${runner.name} さんの詳細データ`;
+
+            const rSplits = data.splits.filter(s => s.runnerId === runnerId).sort((a, b) => a.time - b.time);
+            const tbody = document.getElementById('detail-tbody');
+            tbody.innerHTML = '';
+
+            let accumDistance = 0;
+            for (let i = 0; i < rSplits.length; i++) {
+                const current = rSplits[i];
+                accumDistance += current.distanceValue;
+
+                const pointPace = calculatePace(current.time, accumDistance);
+
+                let lapTime = current.time;
+                let lapDist = current.distanceValue;
+                if (i > 0) {
+                    lapTime = current.time - rSplits[i-1].time;
+                }
+                const lapPace = calculatePace(lapTime, lapDist);
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50";
+                tr.innerHTML = `
+                    <td class="p-2 border font-mono">${formatTime(current.time)}</td>
+                    <td class="p-2 border">${accumDistance}m</td>
+                    <td class="p-2 border text-blue-600 font-medium">${pointPace}</td>
+                    <td class="p-2 border font-mono">${formatTime(lapTime)}</td>
+                    <td class="p-2 border">${lapDist}m</td>
+                    <td class="p-2 border text-green-600 font-medium">${lapPace}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            if(rSplits.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-400">データが割り当てられていません。</td></tr>`;
+            }
+        }
+
+        function hideRunnerDetail() {
+            document.getElementById('runner-detail-view').classList.replace('block', 'hidden');
+            document.getElementById('runner-list-view').classList.replace('hidden', 'block');
         }
     </script>
 </body>
